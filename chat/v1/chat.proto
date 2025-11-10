@@ -1,0 +1,121 @@
+syntax = "proto3";
+
+package chat.v1;
+
+import "buf/validate/validate.proto";
+import "google/protobuf/timestamp.proto";
+
+option go_package = "github.com/PaulBabatuyi/reaTimeChat-gRPC/proto/chat/v1";
+
+// ChatService provides real-time 1-on-1 messaging with streaming.
+service ChatService {
+  // Register creates a new user account.
+  rpc Register(RegisterRequest) returns (RegisterResponse);
+  // Login authenticates a user and returns a JWT token.
+  rpc Login(LoginRequest) returns (LoginResponse);
+
+  // ListChats returns a stream of recent chat partners.
+  rpc ListChats(ListChatsRequest) returns (stream ListChatsResponse);
+  // GetHistory returns a stream of messages with a specific user.
+  rpc GetHistory(GetHistoryRequest) returns (stream GetHistoryResponse);
+
+  // ChatStream is a bidirectional stream for real-time messaging.
+  rpc ChatStream(stream ChatStreamRequest) returns (stream ChatStreamResponse);
+}
+
+// ====================== REQUESTS ======================
+// RegisterRequest contains user registration details.
+message RegisterRequest {
+  // Email address (must be valid).
+  string email = 1 [(buf.validate.field).string.email = true];
+  // Password (8-72 characters).
+  string password = 2 [(buf.validate.field).string = {
+    min_len: 8
+    max_len: 72
+  }];
+}
+
+// LoginRequest contains login credentials.
+message LoginRequest {
+  // Email address.
+  string email = 1 [(buf.validate.field).string.email = true];
+  // Password.
+  string password = 2;
+}
+
+// ListChatsRequest is empty (no fields needed).
+message ListChatsRequest {}
+
+// GetHistoryRequest specifies the conversation partner.
+message GetHistoryRequest {
+  // Email of the other user.
+  string with_email = 1 [(buf.validate.field).string.email = true];
+}
+
+// ChatStreamRequest represents a message sent by the client.
+message ChatStreamRequest {
+  // Recipient email.
+  string to_email = 1 [(buf.validate.field).string.email = true];
+  // Message content (1-4000 chars).
+  string content = 2 [(buf.validate.field).string = {
+    min_len: 1
+    max_len: 4000
+  }];
+}
+
+// ====================== RESPONSES ======================
+// RegisterResponse contains authentication details.
+message RegisterResponse {
+  // JWT token.
+  string token = 1;
+  // User ID.
+  string user_id = 2;
+  // Token expiry time.
+  google.protobuf.Timestamp expires_at = 3;
+}
+
+// LoginResponse contains authentication details.
+message LoginResponse {
+  // JWT token.
+  string token = 1;
+  // User ID.
+  string user_id = 2;
+  // Token expiry time.
+  google.protobuf.Timestamp expires_at = 3;
+}
+
+// ListChatsResponse represents a chat partner summary.
+message ListChatsResponse {
+  // Partner email.
+  string email = 1;
+  // Last message preview.
+  string last_message = 2;
+  // Timestamp of last message.
+  google.protobuf.Timestamp last_message_at = 3;
+}
+
+// GetHistoryResponse is a single message in history.
+message GetHistoryResponse {
+  // Unique message ID.
+  string msg_id = 1;
+  // Sender email.
+  string from_email = 2;
+  // Recipient email.
+  string to_email = 3;
+  // Message content.
+  string content = 4;
+  // Sent timestamp.
+  google.protobuf.Timestamp sent_at = 5;
+}
+
+// ChatStreamResponse is a message received by the client.
+message ChatStreamResponse {
+  // Unique message ID.
+  string msg_id = 1;
+  // Sender email.
+  string from_email = 2;
+  // Message content.
+  string content = 3;
+  // Sent timestamp.
+  google.protobuf.Timestamp sent_at = 4;
+}

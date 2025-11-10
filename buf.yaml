@@ -1,0 +1,16 @@
+version: v1
+name: buf.build/PaulBabatuyi/reaTimeChat-gRPC
+deps:
+  - buf.build/bufbuild/protovalidate
+
+breaking:
+  use:
+    - FILE
+
+lint:
+  use:
+    - STANDARD
+    - COMMENTS
+  except:
+    - FIELD_LOWER_SNAKE_CASE
+    - PACKAGE_VERSION_SUFFIX

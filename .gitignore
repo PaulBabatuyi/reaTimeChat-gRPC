@@ -1,0 +1,18 @@
+.business-logic
+# Generated files (optional - usually you want to commit these)
+# *.pb.go
+
+# Go
+vendor/
+*.o
+*.a
+*.so
+.DS_Store
+/bin/
+/dist/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
