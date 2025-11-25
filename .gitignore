@@ -19,5 +19,5 @@ vendor/
 .envrc
 # local secrets
 .env
-.envrc
+
 .secrets
