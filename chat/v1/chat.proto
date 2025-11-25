@@ -40,7 +40,10 @@ message LoginRequest {
   // Email address.
   string email = 1 [(buf.validate.field).string.email = true];
   // Password.
-  string password = 2;
+  string password = 2 [(buf.validate.field).string = {
+    min_len: 8
+    max_len: 72
+  }];
 }
 
 // ListChatsRequest is empty (no fields needed).

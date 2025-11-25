@@ -1,0 +1,35 @@
+services:
+  mongo:
+    image: mongo:6.0
+    container_name: rea_time_chat_mongo
+    restart: unless-stopped
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongo-data:/data/db
+
+  api:
+    build: .
+    container_name: rea_time_chat_api
+    depends_on:
+      - mongo
+    environment:
+      - MONGODB_URI=mongodb://mongo:27017
+      - JWT_SECRET=replace-with-secret
+    ports:
+      - "50051:50051"
+
+  test-runner:
+    image: golang:1.20
+    container_name: rea_time_chat_tests
+    depends_on:
+      - mongo
+    working_dir: /src
+    volumes:
+      - ./:/src
+    environment:
+      - MONGODB_URI=mongodb://mongo:27017
+    command: ["/bin/sh", "-c", "go test ./..."]
+
+volumes:
+  mongo-data:

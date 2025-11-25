@@ -1,0 +1,48 @@
+name: CI
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    services:
+      mongo:
+        image: mongo:6.0
+        ports: [ 27017:27017 ]
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v4
+        with:
+          go-version: '1.20'
+
+      - name: Wait for MongoDB
+        run: |
+          retries=0
+          until nc -z localhost 27017 || [ "$retries" -ge 30 ]; do
+            retries=$((retries+1))
+            echo "Waiting for MongoDB... attempt $retries"
+            sleep 1
+          done
+
+      - name: Print Go version
+        run: go version
+
+      - name: Download modules
+        run: go mod download
+
+      - name: Run tests (unit + integration)
+        env:
+          MONGODB_URI: mongodb://localhost:27017
+          JWT_SECRET: test-secret
+        run: go test ./... -v
+
+      - name: Build cmd/api
+        run: go build -v -o bin/reaTimeChat-api ./cmd/api
