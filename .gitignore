@@ -15,4 +15,9 @@ vendor/
 .vscode/
 .idea/
 *.swp
-*.swo
+*.
+.envrc
+# local secrets
+.env
+
+.secrets
