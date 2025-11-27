@@ -1,14 +1,13 @@
-// Package db manages MongoDB connections and collections.
 package db
 
 import (
-	"context" // For connection timeout/cancellation
-	"fmt"     // Error formatting
-	"time"    // Duration for timeouts
+	"context"
+	"fmt"
+	"time"
 
-	"go.mongodb.org/mongo-driver/v2/mongo"          // MongoDB driver
-	"go.mongodb.org/mongo-driver/v2/mongo/options"  // MongoDB options
-	"go.mongodb.org/mongo-driver/v2/mongo/readpref" // MongoDB read preference
+	"go.mongodb.org/mongo-driver/v2/mongo"
+	"go.mongodb.org/mongo-driver/v2/mongo/options"
+	"go.mongodb.org/mongo-driver/v2/mongo/readpref"
 )
 
 // Client wraps mongo.Client and exposes collections.

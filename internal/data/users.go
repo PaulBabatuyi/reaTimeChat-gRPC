@@ -1,13 +1,12 @@
-// Package data provides DB models and stores.
 package data
 
 import (
-	"context" // Used for cancellation and timeouts
-	"errors"  // Error handling
-	"time"    // Timestamps
+	"context"
+	"errors"
+	"time"
 
-	"go.mongodb.org/mongo-driver/v2/bson"  // MongoDB document queries
-	"go.mongodb.org/mongo-driver/v2/mongo" // MongoDB driver
+	"go.mongodb.org/mongo-driver/v2/bson"
+	"go.mongodb.org/mongo-driver/v2/mongo"
 )
 
 // UsersStore performs user DB operations.
