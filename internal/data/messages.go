@@ -4,6 +4,8 @@ import (
 	"context"
 	"time"
 
+	"github.com/PaulBabatuyi/reaTimeChat-gRPC/internal/normalize"
+
 	"go.mongodb.org/mongo-driver/v2/bson"
 	"go.mongodb.org/mongo-driver/v2/mongo"
 	"go.mongodb.org/mongo-driver/v2/mongo/options"
@@ -25,11 +27,12 @@ func NewMessagesStore(coll *mongo.Collection) *MessagesStore {
 func (m *MessagesStore) SaveMessage(ctx context.Context, fromEmail, toEmail, content string, sentAt time.Time) (*Message, error) {
 	// Create Message struct matching the domain model in models.go
 	msg := &Message{
-		FromEmail: fromEmail,  // Sender email from JWT claims
-		ToEmail:   toEmail,    // Recipient email from ChatStreamRequest.to_email
-		Content:   content,    // Message text from ChatStreamRequest.content
-		SentAt:    sentAt,     // Timestamp when client sent (for ordering)
-		CreatedAt: time.Now(), // Server-side timestamp when saved
+		// Ensure emails are stored in normalized (lowercase + trimmed) form
+		FromEmail: normalize.Email(fromEmail), // Sender email from JWT claims
+		ToEmail:   normalize.Email(toEmail),   // Recipient email from ChatStreamRequest.to_email
+		Content:   content,                    // Message text from ChatStreamRequest.content
+		SentAt:    sentAt,                     // Timestamp when client sent (for ordering)
+		CreatedAt: time.Now(),                 // Server-side timestamp when saved
 	}
 
 	// InsertOne adds the message document to MongoDB collection
@@ -55,17 +58,22 @@ func (m *MessagesStore) GetMessageHistory(ctx context.Context, user1, user2 stri
 
 	// Create filter to match messages between these two users (bidirectional)
 	// "$or" means either condition is true
+	// Normalize the provided emails before building the query so mixed-case
+	// usage still matches stored messages.
+	u1 := normalize.Email(user1)
+	u2 := normalize.Email(user2)
+
 	filter := bson.M{
-		"$or": []bson.M{
-			{
+		"$or": bson.A{
+			bson.M{
 				// Messages sent FROM user1 TO user2
-				"from_email": user1,
-				"to_email":   user2,
+				"from_email": u1,
+				"to_email":   u2,
 			},
-			{
+			bson.M{
 				// Messages sent FROM user2 TO user1 (opposite direction)
-				"from_email": user2,
-				"to_email":   user1,
+				"from_email": u2,
+				"to_email":   u1,
 			},
 		},
 	}
@@ -102,6 +110,9 @@ func (m *MessagesStore) GetMessageHistory(ctx context.Context, user1, user2 stri
 func (m *MessagesStore) GetRecentChats(ctx context.Context, userEmail string, limit int64) ([]*ChatPartner, error) {
 	// MongoDB Aggregation Pipeline: series of stages that transform data
 	// Think of it like: filter → group → sort → limit
+	// Normalize the user email first so the pipeline matches stored documents
+	userEmail = normalize.Email(userEmail)
+
 	pipeline := mongo.Pipeline{
 		// Stage 1: $match - Filter messages where userEmail appears as sender or recipient
 		bson.D{{Key: "$match", Value: bson.D{

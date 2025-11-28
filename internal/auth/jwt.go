@@ -8,6 +8,7 @@ import (
 	"github.com/golang-jwt/jwt/v5"
 	"go.mongodb.org/mongo-driver/v2/bson"
 	"golang.org/x/crypto/bcrypt"
+	"github.com/PaulBabatuyi/reaTimeChat-gRPC/internal/normalize"
 )
 
 // JWTManager signs and validates JWT tokens used by the API.
@@ -58,7 +59,8 @@ func (m *JWTManager) GenerateToken(userID bson.ObjectID, email string) (string, 
 	// Create claims struct with user info and expiration
 	claims := &Claims{
 		UserID: userID.Hex(), // Convert MongoDB ObjectID to hex string for JSON
-		Email:  email,        // User email from database
+		// Ensure tokens store normalized email so claims are consistent
+		Email:  normalize.Email(email), // User email from database
 		RegisteredClaims: jwt.RegisteredClaims{
 			ExpiresAt: jwt.NewNumericDate(expiresAt),  // Set expiration time
 			IssuedAt:  jwt.NewNumericDate(time.Now()), // Set creation time
@@ -125,6 +127,10 @@ func (m *JWTManager) VerifyToken(tokenString string) (*Claims, error) {
 	if !token.Valid {
 		return nil, errors.New("invalid token")
 	}
+
+	// Normalize the returned email claim so the rest of the system sees a
+	// consistent, lowercase address even if older tokens had mixed-case emails.
+	claims.Email = normalize.Email(claims.Email)
 
 	// Return extracted claims so handler can identify the user
 	return claims, nil

@@ -1,5 +1,5 @@
 ### multi-stage Dockerfile for reaTimeChat-gRPC cmd/api
-FROM golang:1.20-bullseye AS builder
+FROM golang:1.25-bullseye AS builder
 WORKDIR /src
 
 # Copy modules manifests first (caching)

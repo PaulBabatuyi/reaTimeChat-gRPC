@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"html"
 	"io"
 	"log"
 	"time"
@@ -24,7 +25,8 @@ func (s *Server) Register(ctx context.Context, req *v1.RegisterRequest) (*v1.Reg
 	// Create user in DB
 	user, err := s.users.CreateUser(ctx, req.GetEmail(), hashed)
 	if err != nil {
-		return nil, status.Errorf(codes.Internal, "failed to create user: %v", err)
+		log.Printf("create user failed: %v", err)
+		return nil, status.Errorf(codes.Internal, "failed to create user")
 	}
 
 	// Generate JWT token for newly created user
@@ -75,8 +77,12 @@ func (s *Server) ListChats(req *v1.ListChatsRequest, stream v1.ChatService_ListC
 		return status.Errorf(codes.Unauthenticated, "missing auth claims")
 	}
 
-	// Get recent chat partners (use default limit)
-	partners, err := s.msgs.GetRecentChats(stream.Context(), claims.Email, 50)
+	// Get recent chat partners (use request limit or default value)
+	var limit int64 = int64(req.GetLimit())
+	if limit == 0 {
+		limit = 50
+	}
+	partners, err := s.msgs.GetRecentChats(stream.Context(), claims.Email, limit)
 	if err != nil {
 		return status.Errorf(codes.Internal, "failed to read recent chats: %v", err)
 	}
@@ -159,7 +165,7 @@ func (s *Server) ChatStream(stream v1.ChatService_ChatStreamServer) error {
 		}
 
 		// Save message in DB
-		saved, err := s.msgs.SaveMessage(stream.Context(), claims.Email, req.GetToEmail(), req.GetContent(), time.Now())
+		saved, err := s.msgs.SaveMessage(stream.Context(), claims.Email, req.GetToEmail(), html.EscapeString(req.GetContent()), time.Now())
 		if err != nil {
 			return status.Errorf(codes.Internal, "failed to save message: %v", err)
 		}

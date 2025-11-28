@@ -43,6 +43,25 @@ func TestJWTManager_GenerateAndVerify(t *testing.T) {
 	}
 }
 
+func TestJWTManager_NormalizeEmailClaim(t *testing.T) {
+	m := NewJWTManager("test-secret", 5*time.Minute)
+
+	var id bson.ObjectID
+	token, _, err := m.GenerateToken(id, "User.Case@Example.COM")
+	if err != nil {
+		t.Fatalf("GenerateToken failed: %v", err)
+	}
+
+	claims, err := m.VerifyToken(token)
+	if err != nil {
+		t.Fatalf("VerifyToken failed: %v", err)
+	}
+
+	if claims.Email != "user.case@example.com" {
+		t.Fatalf("expected normalized email in claims, got %s", claims.Email)
+	}
+}
+
 func TestJWTManager_Rotation(t *testing.T) {
 	// create a manager with two keys and active kid "k2"
 	keys := map[string]string{"k1": "secret-one", "k2": "secret-two"}

@@ -73,3 +73,39 @@ func TestUsersCreateAndGet(t *testing.T) {
 		t.Fatalf("GetUserByID returned wrong email: %s", got.Email)
 	}
 }
+
+func TestUsersNormalization(t *testing.T) {
+	c := setupDB(t)
+	defer func() { _ = c.Close(context.Background()) }()
+
+	users := NewUsersStore(c.UsersCollection())
+	ctx := context.Background()
+
+	mixed := "User.MixedCASE@Example.COM"
+
+	// create using mixed-case
+	user, err := users.CreateUser(ctx, mixed, "hashed-password")
+	if err != nil {
+		t.Fatalf("CreateUser failed: %v", err)
+	}
+
+	// stored email should be normalized
+	if user.Email != "user.mixedcase@example.com" {
+		t.Fatalf("CreateUser should store normalized email, got %s", user.Email)
+	}
+
+	// UserExists should be case-insensitive
+	ok, err := users.UserExists(ctx, "USER.MixedCASE@Example.com")
+	if err != nil || !ok {
+		t.Fatalf("UserExists failed: ok=%v err=%v", ok, err)
+	}
+
+	// GetUserByEmail should find using a differently-cased input
+	u2, err := users.GetUserByEmail(ctx, "user.mixedcase@EXAMPLE.com")
+	if err != nil {
+		t.Fatalf("GetUserByEmail failed: %v", err)
+	}
+	if u2.Email != "user.mixedcase@example.com" {
+		t.Fatalf("GetUserByEmail returned wrong email: %s", u2.Email)
+	}
+}

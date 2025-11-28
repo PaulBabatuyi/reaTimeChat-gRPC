@@ -5,6 +5,8 @@ import (
 	"errors"
 	"time"
 
+	"github.com/PaulBabatuyi/reaTimeChat-gRPC/internal/normalize"
+
 	"go.mongodb.org/mongo-driver/v2/bson"
 	"go.mongodb.org/mongo-driver/v2/mongo"
 )
@@ -25,7 +27,8 @@ func NewUsersStore(coll *mongo.Collection) *UsersStore {
 func (u *UsersStore) CreateUser(ctx context.Context, email, hashedPassword string) (*User, error) {
 	// Create new User struct with provided email and already-hashed password from auth.HashPassword()
 	user := &User{
-		Email:     email,          // From RegisterRequest.email
+		// Store a normalized email to avoid duplicate/difference by case
+		Email:     normalize.Email(email), // From RegisterRequest.email
 		Password:  hashedPassword, // Already hashed by auth.HashPassword()
 		CreatedAt: time.Now(),     // Set current server time
 		UpdatedAt: time.Now(),     // Initially same as CreatedAt
@@ -59,7 +62,8 @@ func (u *UsersStore) GetUserByEmail(ctx context.Context, email string) (*User, e
 
 	// FindOne queries the collection for a document matching the email
 	// bson.M{"email": email} creates MongoDB query filter: {email: "provided@email.com"}
-	err := u.coll.FindOne(ctx, bson.M{"email": email}).Decode(&user)
+	// Query using normalized email so lookups match registrations
+	err := u.coll.FindOne(ctx, bson.M{"email": normalize.Email(email)}).Decode(&user)
 	if err != nil {
 		// Check if no document found (user doesn't exist)
 		if err == mongo.ErrNoDocuments {
@@ -99,7 +103,8 @@ func (u *UsersStore) GetUserByID(ctx context.Context, id bson.ObjectID) (*User, 
 func (u *UsersStore) UserExists(ctx context.Context, email string) (bool, error) {
 	// CountDocuments returns number of documents matching the filter
 	// Much faster than FindOne when you only need to know if it exists
-	count, err := u.coll.CountDocuments(ctx, bson.M{"email": email})
+	// Count using normalized email (consistent with CreateUser/GetUserByEmail)
+	count, err := u.coll.CountDocuments(ctx, bson.M{"email": normalize.Email(email)})
 	if err != nil {
 		// Database errors
 		return false, err

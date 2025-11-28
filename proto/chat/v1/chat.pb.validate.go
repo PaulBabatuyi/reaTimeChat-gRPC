@@ -264,6 +264,8 @@ func (m *ListChatsRequest) validate(all bool) error {
 
 	var errors []error
 
+	// no validation rules for Limit
+
 	if len(errors) > 0 {
 		return ListChatsRequestMultiError(errors)
 	}

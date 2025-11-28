@@ -46,8 +46,15 @@ message LoginRequest {
   }];
 }
 
-// ListChatsRequest is empty (no fields needed).
-message ListChatsRequest {}
+// ListChatsRequest
+message ListChatsRequest {
+  // Optional maximum number of recent chat partners to return. If 0 or unset,
+  // the server will use a sensible default.
+  int32 limit = 1 [(buf.validate.field).int32 = {
+    gte: 0
+    lte: 500
+  }];
+}
 
 // GetHistoryRequest specifies the conversation partner.
 message GetHistoryRequest {
