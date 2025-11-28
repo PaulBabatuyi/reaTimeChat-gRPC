@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"io"
+	"log"
 	"time"
 
 	"github.com/PaulBabatuyi/reaTimeChat-gRPC/internal/auth"
@@ -129,6 +130,15 @@ func (s *Server) ChatStream(stream v1.ChatService_ChatStreamServer) error {
 		return status.Errorf(codes.Unauthenticated, "missing auth claims")
 	}
 
+	// Register this stream in the hub so other connected clients can receive messages.
+	// We register under the authenticated user's email and ensure we unregister when
+	// the stream returns/exits.
+	var connID int64
+	if s.hub != nil {
+		connID = s.hub.Register(claims.Email, stream)
+		defer s.hub.Unregister(claims.Email, connID)
+	}
+
 	for {
 		// Receive message from client
 		req, err := stream.Recv()
@@ -154,14 +164,28 @@ func (s *Server) ChatStream(stream v1.ChatService_ChatStreamServer) error {
 			return status.Errorf(codes.Internal, "failed to save message: %v", err)
 		}
 
-		// Send acknowledgement message back to client with message metadata
-		if err := stream.Send(&v1.ChatStreamResponse{
+		// Build response with the persisted message metadata
+		resp := &v1.ChatStreamResponse{
 			MsgId:     saved.ID.Hex(),
 			FromEmail: saved.FromEmail,
 			Content:   saved.Content,
 			SentAt:    timestamppb.New(saved.SentAt),
-		}); err != nil {
-			return status.Errorf(codes.Internal, "failed to send response: %v", err)
+		}
+
+		// Send acknowledgement back to sender
+		if err := stream.Send(resp); err != nil {
+			return status.Errorf(codes.Internal, "failed to send response to sender: %v", err)
+		}
+
+		// Try to deliver the saved message to the recipient's active streams.
+		// This is best-effort — if the recipient isn't connected, the message is persisted
+		// and will be available via GetHistory when they reconnect.
+		if s.hub != nil {
+			if err := s.hub.SendToUser(req.GetToEmail(), resp); err != nil {
+				// Not connected or send failed — log and continue. This is deliberate: we don't
+				// want a single failing recipient stream to bring down the sender's stream.
+				log.Printf("delivery to %s failed (or user offline): %v", req.GetToEmail(), err)
+			}
 		}
 	}
 }

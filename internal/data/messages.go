@@ -1,13 +1,12 @@
-// Package data implements message-related DB operations.
 package data
 
 import (
-	"context" // For request cancellation/timeouts
-	"time"    // Timestamps
+	"context"
+	"time"
 
-	"go.mongodb.org/mongo-driver/v2/bson"          // MongoDB BSON queries
-	"go.mongodb.org/mongo-driver/v2/mongo"         // MongoDB driver
-	"go.mongodb.org/mongo-driver/v2/mongo/options" // MongoDB query options
+	"go.mongodb.org/mongo-driver/v2/bson"
+	"go.mongodb.org/mongo-driver/v2/mongo"
+	"go.mongodb.org/mongo-driver/v2/mongo/options"
 )
 
 // MessagesStore provides message database operations.

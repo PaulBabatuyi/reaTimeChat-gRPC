@@ -45,7 +45,8 @@ func TestRegisterAndLogin(t *testing.T) {
 		grpc.StreamInterceptor(authStreamInterceptor(jwtMgr)),
 	)
 
-	srv := newServer(usersStore, msgsStore, jwtMgr)
+	hub := NewConnectionHub()
+	srv := newServer(usersStore, msgsStore, jwtMgr, hub)
 	v1.RegisterChatServiceServer(s, srv)
 
 	go func() {

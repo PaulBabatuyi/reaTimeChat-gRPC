@@ -12,8 +12,10 @@ import (
 
 // JWTManager signs and validates JWT tokens used by the API.
 type JWTManager struct {
-	secretKey string        // Secret key for HMAC signing (should be from environment)
-	duration  time.Duration // How long tokens are valid (e.g., 24 hours)
+	// map of kid -> secret bytes. New tokens are signed using activeKid.
+	keys     map[string][]byte
+	active   string
+	duration time.Duration // token expiry duration
 }
 
 // Claims is the custom JWT payload (user id + email).
@@ -24,11 +26,28 @@ type Claims struct {
 }
 
 // NewJWTManager returns a configured JWTManager.
+// NewJWTManager creates a single-key JWTManager (backwards compatible).
+// The single key will be stored with kid "1" and used as the active signing key.
 func NewJWTManager(secretKey string, duration time.Duration) *JWTManager {
-	return &JWTManager{
-		secretKey: secretKey, // Secret from environment variable
-		duration:  duration,  // Token validity period
+	keys := map[string][]byte{"1": []byte(secretKey)}
+	return &JWTManager{keys: keys, active: "1", duration: duration}
+}
+
+// NewJWTManagerFromKeys creates a JWT manager from a keys map and specifies
+// which key id (kid) should be used for signing new tokens.
+func NewJWTManagerFromKeys(keyMap map[string]string, activeKid string, duration time.Duration) *JWTManager {
+	keys := make(map[string][]byte, len(keyMap))
+	for k, v := range keyMap {
+		keys[k] = []byte(v)
 	}
+	// if activeKid is empty and we have keys, pick the first one deterministically
+	if activeKid == "" {
+		for k := range keys {
+			activeKid = k
+			break
+		}
+	}
+	return &JWTManager{keys: keys, active: activeKid, duration: duration}
 }
 
 // GenerateToken issues a signed JWT token for a user.
@@ -49,8 +68,18 @@ func (m *JWTManager) GenerateToken(userID bson.ObjectID, email string) (string, 
 	// Create new token with HS256 signing method (HMAC with SHA-256)
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
 
-	// Sign the token using the secret key to create the final JWT string
-	tokenString, err := token.SignedString([]byte(m.secretKey))
+	// include the active kid in the header so verifiers can pick the right key
+	if token.Header == nil {
+		token.Header = map[string]interface{}{}
+	}
+	token.Header["kid"] = m.active
+
+	// Sign the token using the active secret
+	activeSecret, ok := m.keys[m.active]
+	if !ok {
+		return "", time.Time{}, fmt.Errorf("active signing key %q not found", m.active)
+	}
+	tokenString, err := token.SignedString(activeSecret)
 	if err != nil {
 		return "", time.Time{}, err // Return empty string and zero time on error
 	}
@@ -71,8 +100,20 @@ func (m *JWTManager) VerifyToken(tokenString string) (*Claims, error) {
 		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
 			return nil, fmt.Errorf("unexpected signing method: %v", token.Header["alg"])
 		}
-		// Return the secret key used to verify the signature
-		return []byte(m.secretKey), nil
+		// When verifying we honor the kid header and pick the corresponding secret
+		if kidVal, ok := token.Header["kid"]; ok {
+			if kidStr, ok := kidVal.(string); ok {
+				if s, ok := m.keys[kidStr]; ok {
+					return s, nil
+				}
+				return nil, fmt.Errorf("unknown kid: %v", kidStr)
+			}
+		}
+		// fallback: try the active secret
+		if s, ok := m.keys[m.active]; ok {
+			return s, nil
+		}
+		return nil, fmt.Errorf("no signing key available")
 	})
 
 	// Check if there was an error during parsing (malformed, expired, etc)
